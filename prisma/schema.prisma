@@ -1,0 +1,252 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  permissions Json?
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  name         String?
+  passwordHash String
+  roleId       String?
+  role         Role?       @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  auditLogs    AuditLog[]
+
+  @@index([email])
+  @@index([roleId])
+}
+
+model Category {
+  id           String             @id @default(cuid())
+  slug         String             @unique
+  name         String
+  description  String?
+  icon         String?            // Lucide icon identifier
+  sortOrder    Int                @default(0)
+  isPublished  Boolean            @default(true)
+  tools        Tool[]
+  collections  SymbolCollection[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([slug])
+}
+
+model Tool {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  name            String
+  description     String
+  detailedContent String?       @db.Text
+  categoryId      String
+  category        Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  componentId     String        // Corresponds to client component in Registry
+  isFeatured      Boolean       @default(false)
+  isPublished     Boolean       @default(true)
+  metaTitle       String?
+  metaDescription String?
+  metaKeywords    String[]
+  sortOrder       Int           @default(0)
+  versions        ToolVersion[]
+  fromLinks       RelatedLink[] @relation("ToolFromLinks")
+  toLinks         RelatedLink[] @relation("ToolToLinks")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([slug])
+  @@index([categoryId])
+}
+
+model ToolVersion {
+  id          String   @id @default(cuid())
+  toolId      String
+  tool        Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  version     String
+  changelog   String?  @db.Text
+  isPublished Boolean  @default(true)
+  releasedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([toolId])
+}
+
+model Symbol {
+  id               String             @id @default(cuid())
+  character        String             @unique
+  name             String
+  slug             String             @unique
+  unicodeCodepoint String             // e.g. "U+00A9"
+  htmlEntity       String?            // e.g. "&copy;" or "&#169;"
+  altCodeWindows   String?            // e.g. "Alt + 0169"
+  macShortcut      String?            // e.g. "Option + G"
+  description      String?            @db.Text
+  keywords         String[]
+  isPublished      Boolean            @default(true)
+  collections      CollectionSymbol[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([character])
+  @@index([slug])
+  @@index([unicodeCodepoint])
+}
+
+model SymbolCollection {
+  id             String             @id @default(cuid())
+  slug           String             @unique
+  name           String
+  description    String?
+  seoTitle       String?
+  seoDescription String?
+  categoryId     String?
+  category       Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  isPublished    Boolean            @default(true)
+  sortOrder      Int                @default(0)
+  symbols        CollectionSymbol[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([slug])
+}
+
+model CollectionSymbol {
+  collectionId String
+  collection   SymbolCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  symbolId     String
+  symbol       Symbol           @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+  sortOrder    Int              @default(0)
+
+  @@id([collectionId, symbolId])
+  @@index([collectionId])
+  @@index([symbolId])
+}
+
+model Page {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  title           String
+  contentMarkdown String        @db.Text
+  seoTitle        String?
+  seoDescription  String?
+  isPublished     Boolean       @default(true)
+  relatedLinks    RelatedLink[] @relation("PageFromLinks")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([slug])
+}
+
+model Article {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  title           String
+  summary         String?
+  contentMarkdown String        @db.Text
+  seoTitle        String?
+  seoDescription  String?
+  targetLocale    String        @default("en-US")
+  isPublished     Boolean       @default(true)
+  publishedAt     DateTime?
+  relatedLinks    RelatedLink[] @relation("ArticleFromLinks")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([slug])
+}
+
+model RelatedLink {
+  id          String   @id @default(cuid())
+  fromToolId  String?
+  fromTool    Tool?    @relation("ToolFromLinks", fields: [fromToolId], references: [id], onDelete: Cascade)
+  toToolId    String?
+  toTool      Tool?    @relation("ToolToLinks", fields: [toToolId], references: [id], onDelete: Cascade)
+  articleId   String?
+  article     Article? @relation("ArticleFromLinks", fields: [articleId], references: [id], onDelete: Cascade)
+  pageId      String?
+  page        Page?    @relation("PageFromLinks", fields: [pageId], references: [id], onDelete: Cascade)
+  anchorText  String
+  targetUrl   String
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([fromToolId])
+  @@index([toToolId])
+  @@index([articleId])
+  @@index([pageId])
+}
+
+model Redirect {
+  id          String   @id @default(cuid())
+  sourcePath  String   @unique
+  targetPath  String
+  statusCode  Int      @default(301)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sourcePath])
+}
+
+model AdPlacement {
+  id          String   @id @default(cuid())
+  zoneKey     String   @unique // e.g. "HEADER_BELOW_NAV", "TOOL_BOTTOM", "ARTICLE_INLINE"
+  name        String
+  provider    String   @default("ADSENSE")
+  slotId      String?
+  format      String   @default("auto")
+  responsive  Boolean  @default(true)
+  isEnabled   Boolean  @default(true)
+  customHtml  String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([zoneKey])
+}
+
+model SiteSetting {
+  key         String   @id
+  value       String   @db.Text
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  payload    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
