@@ -6,6 +6,7 @@ import { siteConfig } from "@/config/site";
 import { CookieConsent } from "@/components/layout/cookie-consent";
 import { AdSenseScript } from "@/components/ads/adsense-script";
 import { GoogleAnalytics } from "@/components/analytics/google-analytics";
+import { GoogleTagManager } from "@/components/analytics/google-tag-manager";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -60,6 +61,7 @@ export default function RootLayout({
         <CookieConsent />
         <AdSenseScript />
         <GoogleAnalytics />
+        <GoogleTagManager />
       </body>
     </html>
   );
